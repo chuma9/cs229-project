@@ -192,17 +192,18 @@ def self_learn(trainMatrix, trainLabels, unlabelledMatrix):
         preds = learn_from_naive_bayes_model_3(NBModel, unlabelledMatrix)
 
         # add to training examples
-        posNewLabels = unlabelledMatrix[preds == 1]
-        trainMatrix = np.concatenate((trainMatrix,posNewLabels), axis=0)
-        trainLabels = np.concatenate((trainLabels,np.array([1]*len(posNewLabels))), axis=0)
+        # Don't learn neutral, already overrepresented
+        #posNewLabels = unlabelledMatrix[preds == 1]
+        #trainMatrix = np.concatenate((trainMatrix,posNewLabels), axis=0)
+        #trainLabels = np.concatenate((trainLabels,np.array([1]*len(posNewLabels))), axis=0)
         negNewLabels = unlabelledMatrix[preds == -1]
         trainMatrix = np.concatenate((trainMatrix,negNewLabels), axis=0)
         trainLabels = np.concatenate((trainLabels,np.array([-1]*len(negNewLabels))), axis=0)
 
-        # Don't learn neutral, already overrepresented
-        #neutNewLabels = unlabelledMatrix[preds == 0]
-        #trainMatrix = np.concatenate((trainMatrix,neutNewLabels), axis=0)
-        #trainLabels = np.concatenate((trainLabels,np.array([0]*len(neutNewLabels))), axis=0)
+        
+        neutNewLabels = unlabelledMatrix[preds == 0]
+        trainMatrix = np.concatenate((trainMatrix,neutNewLabels), axis=0)
+        trainLabels = np.concatenate((trainLabels,np.array([0]*len(neutNewLabels))), axis=0)
         unlabelledMatrix = unlabelledMatrix[preds == 5]
 
     return fit_naive_bayes_model_3(trainMatrix, trainLabels)
