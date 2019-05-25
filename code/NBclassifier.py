@@ -1,6 +1,7 @@
 import collections
 import numpy as np
 import csv
+from tqdm import tqdm
 
 def load_dataset(csv_path):
     """Load a CSV file containing a dataset and return a numpy array of tweets and another of corresponding labels
@@ -27,6 +28,14 @@ def load_dataset(csv_path):
             
             labels.append(int(label))    
     return np.array(tweets), np.array(labels)
+
+def load_unlabelled_dataset(txt_path):
+    tweets = []
+
+    with open(txt_path, 'r', encoding='utf8') as txt_file:
+        for tweet in txt_file:
+            tweets.append(tweet[1:-1]) # remove quotes
+    return np.array(tweets)
    
 def create_dictionary(tweets, isBigram = False):
     """Create a dictionary mapping words to integer indices.
@@ -174,22 +183,105 @@ def predict_from_naive_bayes_model_3(model, matrix):
         
     return(dataLabels)
 
-##### CODE EXAMPLE ######
-traintweets, trainLabels = load_dataset(r'C:\Users\chuma\Documents\GitHub\cs229-project\data\2016_train.csv')
-valtweets, valLabels = load_dataset(r'C:\Users\chuma\Documents\GitHub\cs229-project\data\2016_val.csv')
+def self_learn(trainMatrix, trainLabels, unlabelledMatrix):
+    ''' Update training data with confident predictions from unlabelled data
+    '''
 
+    for i in tqdm(range(10)): # self learn for 10 iterations
+        NBModel = fit_naive_bayes_model_3(trainMatrix, trainLabels)
+        preds = learn_from_naive_bayes_model_3(NBModel, unlabelledMatrix)
+
+        # add to training examples
+        posNewLabels = unlabelledMatrix[preds == 1]
+        trainMatrix = np.concatenate((trainMatrix,posNewLabels), axis=0)
+        trainLabels = np.concatenate((trainLabels,np.array([1]*len(posNewLabels))), axis=0)
+        negNewLabels = unlabelledMatrix[preds == -1]
+        trainMatrix = np.concatenate((trainMatrix,negNewLabels), axis=0)
+        trainLabels = np.concatenate((trainLabels,np.array([-1]*len(negNewLabels))), axis=0)
+
+        # Don't learn neutral, already overrepresented
+        #neutNewLabels = unlabelledMatrix[preds == 0]
+        #trainMatrix = np.concatenate((trainMatrix,neutNewLabels), axis=0)
+        #trainLabels = np.concatenate((trainLabels,np.array([0]*len(neutNewLabels))), axis=0)
+        unlabelledMatrix = unlabelledMatrix[preds == 5]
+
+    return fit_naive_bayes_model_3(trainMatrix, trainLabels)
+
+
+def learn_from_naive_bayes_model_3(model, matrix):
+    """Use a Naive Bayes model to compute predictions for a unlabelled data matrix.
+
+    This function should be able to predict on the models that fit_naive_bayes_model
+    outputs.
+
+    Args:
+        model: A trained model from fit_naive_bayes_model
+        matrix: A numpy array containing word counts
+
+    Returns: A numpy array containg the confident predictions from the model 
+    """
+    theta_y, theta_k = model
+    numClasses = len(theta_y)
+    labelTypes = [-1, 0, 1]
+    exampleProbs = []
+    
+    logProbY = np.log(theta_y)
+    logProbK = np.log(theta_k)
+
+    for i in range(len(theta_y)):
+        examplesLogProb = np.dot(matrix, logProbK[i])
+        exampleProb = np.exp(examplesLogProb + logProbY[i])
+        exampleProbs.append(exampleProb)
+    
+    totalProbs = np.zeros(exampleProbs[0].shape)
+    for i in range(len(theta_y)):
+        totalProbs += exampleProbs[i]
+    
+    dataLabels = np.zeros(matrix.shape[0])
+    maxExampleProbs = np.zeros(totalProbs.shape)
+    for i in range(len(theta_y)):
+        prob = exampleProbs[i] / totalProbs
+        dataLabels[prob > maxExampleProbs] = labelTypes[i]
+        maxExampleProbs[prob > maxExampleProbs] = prob[prob > maxExampleProbs]
+    # self train
+    for i in range(len(maxExampleProbs)):
+        if maxExampleProbs[i] < 0.98: # only label values with probability > 0.95
+            dataLabels[i] = 5 # user 5 to indicate no label
+
+    return(dataLabels)
+
+##### CODE EXAMPLEs ######
+traintweets, trainLabels = load_dataset(r'data\2016_train.csv')
+valtweets, valLabels = load_dataset(r'data\2016_val.csv')
+
+## Train unigram model
 wordDict = create_dictionary(traintweets, False)
-bigramDict = create_dictionary(traintweets, True)
 trainWordMatrix = transform_text(traintweets, wordDict, False)
-trainBigramMatrix = transform_text(traintweets, bigramDict, True)
+
+## Train bigram model
+#bigramDict = create_dictionary(traintweets, True)
+#trainBigramMatrix = transform_text(traintweets, bigramDict, True)
 
 valWordMatrix = transform_text(valtweets, wordDict, False)
-valBigramMatrix = transform_text(valtweets, bigramDict, True)
+#valBigramMatrix = transform_text(valtweets, bigramDict, True)
 
 # IF USING 3 CLASSES (NEG/POS/NEUTRAL)
+# Predict Unigram model
 NBModel = fit_naive_bayes_model_3(trainWordMatrix, trainLabels)
 preds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
 print(f'Unigram accuracy: {np.mean(valLabels == preds)}')
+
+# Predict Bigram model
+'''
 NBModel = fit_naive_bayes_model_3(trainBigramMatrix, trainLabels)
 preds = predict_from_naive_bayes_model_3(NBModel, valBigramMatrix)
 print(f'Bigram accuracy: {np.mean(valLabels == preds)}')
+''' 
+
+# IF SELF LEARNING
+txt_path = r'data\unlabelled_dataset.txt'
+unlabelledtweets = load_unlabelled_dataset(txt_path)
+unlabelledMatrix = transform_text(unlabelledtweets, wordDict, False)
+NBModel = self_learn(trainWordMatrix, trainLabels, unlabelledMatrix)
+preds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
+print(f'Self Learning accuracy: {np.mean(valLabels == preds)}')

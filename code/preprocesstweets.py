@@ -31,12 +31,21 @@ def load_2016_dataset(csv_path):
                 raise Exception('Unknown labels in dataset! Please check that labels are -1, 0, 1, 2.')
     return np.array(tweets), np.array(labels)
 
-def preprocess_tweets(tweets, labels):
+def load_unlabelled_tweets(txt_path):
+    tweets = []
+
+    with open(txt_path, 'r',encoding='utf8') as txt_file:
+        # skip header line
+        for tweet in txt_file:
+            tweets.append(tweet)
+    return np.array(tweets)
+
+def preprocess_tweets(tweets, labels = None):
     cleaned_tweets = []
     matching_labels = []
     for i in range(len(tweets)):
         tweet = tweets[i].lower()
-        if tweet[0] == '"' and tweet[-1] == '"':
+        if labels == None or (tweet[0] == '"' and tweet[-1] == '"'):
             tweet = tweet[1:-1] # remove quotes
         tweet = tweet.replace('\n', ' ').replace('\r', '') # remove new lines
         if tweet[:2] == 'rt': continue # ignore retweets      
@@ -45,7 +54,8 @@ def preprocess_tweets(tweets, labels):
         tweet = tweet.encode('ascii', 'ignore').decode('ascii') # can do this since we're only interested in English tweets
         if len(tweet) <5: continue
         cleaned_tweets.append(tweet)
-        matching_labels.append(labels[i])
+        if labels is not None:
+            matching_labels.append(labels[i])
     return np.array(cleaned_tweets), np.array(matching_labels)
 
 def split_dataset(tweets, labels, testFrac = 0.2, valFrac = 0.1):
@@ -91,9 +101,17 @@ def split_dataset(tweets, labels, testFrac = 0.2, valFrac = 0.1):
   
 def main():
     csv_path = r'data\climatechangestance.csv'
-    tweets, labels = load_2016_dataset(csv_path)
-    tweets, labels = preprocess_tweets(tweets, labels)
-    split_dataset(tweets, labels, testFrac = 0.2, valFrac = 0.1)
+    txt_path = r'C:\Users\chuma\Documents\GitHub\cs229-project\data\combined_unlabelled_raw_tweets.txt'
+
+    tweets = load_unlabelled_tweets(txt_path)
+    tweets, _ = preprocess_tweets(tweets)
+    with open('unlabelled.csv', 'w+') as fp:
+        for i in range(len(tweets)):
+            fp.write(f'{tweets[i]}\n')
+
+    #tweets, labels = load_2016_dataset(csv_path)
+    #tweets, labels = preprocess_tweets(tweets, labels)
+    #split_dataset(tweets, labels, testFrac = 0.2, valFrac = 0.1)
 
 if __name__ == '__main__':
     main()
