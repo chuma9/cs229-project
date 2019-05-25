@@ -192,7 +192,7 @@ def self_learn(trainMatrix, trainLabels, unlabelledMatrix):
         preds = learn_from_naive_bayes_model_3(NBModel, unlabelledMatrix)
 
         # add to training examples
-        # Don't learn neutral, already overrepresented
+        # Don't learn pro, already overrepresented
         #posNewLabels = unlabelledMatrix[preds == 1]
         #trainMatrix = np.concatenate((trainMatrix,posNewLabels), axis=0)
         #trainLabels = np.concatenate((trainLabels,np.array([1]*len(posNewLabels))), axis=0)
