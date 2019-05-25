@@ -254,8 +254,10 @@ def learn_from_naive_bayes_model_3(model, matrix):
     return(dataLabels)
 
 ##### CODE EXAMPLEs ######
-traintweets, trainLabels = load_dataset(r'data\2016_train.csv')
-valtweets, valLabels = load_dataset(r'data\2016_val.csv')
+import nltk
+nltk.download('stopwords')
+traintweets, trainLabels = load_dataset(r'../data/2016_train.csv')
+valtweets, valLabels = load_dataset(r'../data/2016_val.csv')
 
 ## Train unigram model
 wordDict = create_dictionary(traintweets, False)
@@ -282,7 +284,7 @@ print(f'Bigram accuracy: {np.mean(valLabels == preds)}')
 ''' 
 
 # IF SELF LEARNING
-txt_path = r'data\unlabelled_dataset.txt'
+txt_path = r'../data/unlabelled_dataset.txt'
 unlabelledtweets = load_unlabelled_dataset(txt_path)
 unlabelledMatrix = transform_text(unlabelledtweets, wordDict, False)
 NBModel = self_learn(trainWordMatrix, trainLabels, unlabelledMatrix)
