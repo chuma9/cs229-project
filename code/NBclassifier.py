@@ -2,6 +2,7 @@ import collections
 import numpy as np
 import csv
 from tqdm import tqdm
+from nltk.corpus import stopwords 
 
 def load_dataset(csv_path):
     """Load a CSV file containing a dataset and return a numpy array of tweets and another of corresponding labels
@@ -56,7 +57,8 @@ def create_dictionary(tweets, isBigram = False):
 
     wordCount = {}         # count number of tweets each word appears in 
     wordDict = {}          # final dictionary of words <--> indices to output
-    
+    stopWords = set(stopwords.words("english"))
+
     for tweet in tweets:
         wordsSeen = set()  # keep track of whether all unique words in a tweet
         words = tweet.split()
@@ -69,8 +71,8 @@ def create_dictionary(tweets, isBigram = False):
             else:
                 wordCount[word] = wordCount[word] + 1
             
-    # remove all words that are seen less than 5 times from dictionary
-    wordCount = {word : num for word, num in wordCount.items() if num >= 5}
+    # remove all words that are seen less than 5 times and all stop words from dictionary
+    wordCount = {word : num for word, num in wordCount.items() if num >= 5 and word not in stopWords}
             
     # map words that are seen sufficiently to dictionary, and generate index for each word
     i = 0
@@ -246,7 +248,7 @@ def learn_from_naive_bayes_model_3(model, matrix):
         maxExampleProbs[prob > maxExampleProbs] = prob[prob > maxExampleProbs]
     # self train
     for i in range(len(maxExampleProbs)):
-        if maxExampleProbs[i] < 0.98: # only label values with probability > 0.95
+        if maxExampleProbs[i] < 0.98: # only label values with probability > 0.98
             dataLabels[i] = 5 # user 5 to indicate no label
 
     return(dataLabels)
