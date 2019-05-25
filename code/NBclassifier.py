@@ -253,9 +253,34 @@ def learn_from_naive_bayes_model_3(model, matrix):
 
     return(dataLabels)
 
+def get_top_naive_bayes_words(model, dictionary, n=10):
+    """Compute the top five words that are most indicative of each class.
+
+    Return the words in sorted form, with the most indicative word first.
+
+    Args:
+        model: The Naive Bayes model returned from fit_naive_bayes_model
+        dictionary: A mapping of word to integer ids
+
+    Returns: A list of lists of the top five most indicative words for each class in sorted 
+        order with the most indicative first
+    """
+    theta_y, theta_k = model
+    revDict = {val : key for key, val in dictionary.items()}
+    words = []
+    
+    for i in range(len(theta_y)):
+        diff = theta_k[i] / (1 - theta_k[i])
+        sortedIds = np.argsort(diff)
+        sortedIds = np.flip(sortedIds)
+
+        words.append([revDict[i] for i in sortedIds[0:n]])
+
+    return(words)
+
 ##### CODE EXAMPLEs ######
-traintweets, trainLabels = load_dataset(r'data\2016_train.csv')
-valtweets, valLabels = load_dataset(r'data\2016_val.csv')
+traintweets, trainLabels = load_dataset(r'../data/2016_train.csv')
+valtweets, valLabels = load_dataset(r'../data/2016_val.csv')
 
 ## Train unigram model
 wordDict = create_dictionary(traintweets, False)
@@ -282,9 +307,10 @@ print(f'Bigram accuracy: {np.mean(valLabels == preds)}')
 ''' 
 
 # IF SELF LEARNING
-txt_path = r'data\unlabelled_dataset.txt'
+txt_path = r'../data/unlabelled_dataset.txt'
 unlabelledtweets = load_unlabelled_dataset(txt_path)
 unlabelledMatrix = transform_text(unlabelledtweets, wordDict, False)
 NBModel = self_learn(trainWordMatrix, trainLabels, unlabelledMatrix)
 preds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
 print(f'Self Learning accuracy: {np.mean(valLabels == preds)}')
+import pdb; pdb.set_trace()
