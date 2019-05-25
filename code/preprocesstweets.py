@@ -58,7 +58,7 @@ def preprocess_tweets(tweets, labels = None):
             matching_labels.append(labels[i])
     return np.array(cleaned_tweets), np.array(matching_labels)
 
-def split_dataset(tweets, labels, testFrac = 0.2, valFrac = 0.1):
+def split_dataset(tweets, labels, testFrac = 0.1, valFrac = 0.2):
     """Split dataset into training, validation and test sets which are written to separate files
 
     Args:
