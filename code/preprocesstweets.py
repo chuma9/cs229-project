@@ -1,6 +1,7 @@
 import csv
 import numpy as np
 import re
+import string
 
 """Preprocess the 2016-2018 Climate Change Stance Tweets dataset from a CSV file
 Remove punctuation, converts tweets to lowervase, removes @mentions and 'RT' from
@@ -45,13 +46,11 @@ def preprocess_tweets(tweets, labels = None):
     matching_labels = []
     for i in range(len(tweets)):
         tweet = tweets[i].lower()
-        if labels == None or (tweet[0] == '"' and tweet[-1] == '"'):
-            tweet = tweet[1:-1] # remove quotes
+        tweet = tweet.translate(str.maketrans('', '', string.punctuation)) # remove punctuation
         tweet = tweet.replace('\n', ' ').replace('\r', '') # remove new lines
         if tweet[:2] == 'rt': continue # ignore retweets      
         tweet = re.sub(r'http[^ ]* ?', ' ', tweet) # remove links
-        tweet = re.sub(r'@[^ ]* ?', '', tweet) # remove mentions
-        tweet = tweet.encode('ascii', 'ignore').decode('ascii') # can do this since we're only interested in English tweets
+        tweet = tweet.encode('ascii', 'ignore').decode('ascii') # can do this since we're only interested in English tweets without emojis
         if len(tweet) <5: continue
         cleaned_tweets.append(tweet)
         if labels is not None:
@@ -87,31 +86,32 @@ def split_dataset(tweets, labels, testFrac = 0.1, valFrac = 0.2):
     testtweets = tweets[testInd]
     testLabels = labels[testInd]
     
-    with open('train.csv', 'w+') as fp:
+    with open('train_new.csv', 'w+') as fp:
         for i in range(len(traintweets)):
             fp.write(f'"{traintweets[i]}", {trainLabels[i]}\n')
 
-    with open('val.csv', 'w+') as fp:
+    with open('val_new.csv', 'w+') as fp:
         for i in range(len(valtweets)):
             fp.write(f'"{valtweets[i]}", {valLabels[i]}\n')
     
-    with open('test.csv', 'w+') as fp:
+    with open('test_new.csv', 'w+') as fp:
         for i in range(len(testtweets)):
             fp.write(f'"{testtweets[i]}", {testLabels[i]}\n')
   
 def main():
     csv_path = r'data\climatechangestance.csv'
-    txt_path = r'C:\Users\chuma\Documents\GitHub\cs229-project\data\combined_unlabelled_raw_tweets.txt'
+    txt_path = r'data\unlabelled_raw_tweets.txt'
 
     tweets = load_unlabelled_tweets(txt_path)
     tweets, _ = preprocess_tweets(tweets)
-    with open('unlabelled.csv', 'w+') as fp:
+    tweets = list(set(tweets))
+    with open('unlabelled.txt', 'w+') as fp:
         for i in range(len(tweets)):
             fp.write(f'{tweets[i]}\n')
-
-    #tweets, labels = load_2016_dataset(csv_path)
-    #tweets, labels = preprocess_tweets(tweets, labels)
-    #split_dataset(tweets, labels, testFrac = 0.2, valFrac = 0.1)
-
+    
+    tweets, labels = load_2016_dataset(csv_path)
+    tweets, labels = preprocess_tweets(tweets, labels)
+    split_dataset(tweets, labels, testFrac = 0.1, valFrac = 0.2)
+    
 if __name__ == '__main__':
     main()
