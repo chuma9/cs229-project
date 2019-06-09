@@ -7,116 +7,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import util
 
-def load_dataset(csv_path):
-    """Load a CSV file containing a dataset and return a numpy array of tweets and another of corresponding labels
-
-    Args:
-         csv_path: Path to CSV file containing dataset.
-
-    Returns:
-        tweets: A list of string values containing the text of each tweet.
-        labels: The binary labels (-1, 0 or 1) for each tweet.
-        A 0 indicates the tweet neither supports nor refutes the belief of man-made climate change. 
-        A 1 indicates the tweet supports the belief of man-made climate change. 
-        A -1 indicates the tweet refutes the belief in man-made climate change.
-    """
-    
-    tweets = []
-    labels = []
-
-    with open(csv_path, 'r', newline='', encoding='utf8') as csv_file:
-        reader = csv.reader(csv_file, delimiter=',')
-
-        for tweet, label in reader:
-            tweets.append(tweet[1:-1]) # remove quotes
-            
-            labels.append(int(label))    
-    return np.array(tweets), np.array(labels)
-
-def load_unlabelled_dataset(txt_path):
-    tweets = []
-
-    with open(txt_path, 'r', encoding='utf8') as txt_file:
-        for tweet in txt_file:
-            tweets.append(tweet[1:-1]) # remove quotes
-    return np.array(tweets)
-   
-def create_dictionary(tweets, isBigram = False):
-    """Create a dictionary mapping words to integer indices.
-
-    This function should create a dictionary of word to indices using the provided
-    training tweets. Use get_words to process each tweet.
-
-    Only include add words to the dictionary if they occur in at least five tweets.
-
-    Args:
-        tweets: A list of strings containing SMS tweets
-        isBigram: if true, creates a dictionary of bigrams otherwise, creates a dictionary
-        of unigrams
-
-    Returns:
-        A python dict mapping words to integers.
-    """
-
-    wordCount = {}         # count number of tweets each word appears in 
-    wordDict = {}          # final dictionary of words <--> indices to output
-    stopWords = set(stopwords.words("english"))
-
-    for tweet in tweets:
-        wordsSeen = set()  # keep track of whether all unique words in a tweet
-        words = tweet.split()
-        if isBigram:
-            words = [(words[ix],words[ix+1]) for ix in range(0,len(words)-1)]
-        words = list(set(words))
-        for word in words:
-            if word not in wordCount.keys():
-                wordCount[word] = 1
-            else:
-                wordCount[word] = wordCount[word] + 1
-            
-    # remove all words that are seen less than 5 times from dictionary
-    wordCount = {word : num for word, num in wordCount.items() if num >= 5}
-             
-    # map words that are seen sufficiently to dictionary, and generate index for each word
-    i = 0
-    for word in wordCount.keys():
-        wordDict[word] = i
-        i += 1
-        
-    return(wordDict)
-
-def transform_text(tweets, word_dictionary, isBigram = False):
-    """Transform a list of text tweets into a numpy array for further processing.
-
-    Creates a numpy array that contains the number of times each word
-    appears in each tweet. Each row in the resulting array corresponds to each
-    tweet and each column corresponds to a word.
-
-
-    Args:
-        tweets: A list of strings where each string is an SMS tweet.
-        word_dictionary: A python dict mapping words to integers.
-        isBigram: If true, uses bigrams otherwise, uses unigrams
-
-    Returns:
-        A numpy array marking the words present in each tweet.
-    """
-
-    numtweets = len(tweets)
-    numWords = len(word_dictionary.keys())
-    tweetArray = np.zeros((numtweets, numWords))
-    
-    for i in range(len(tweets)):
-        words = tweets[i].split()
-        if isBigram:
-            words = [(words[ix],words[ix+1]) for ix in range(0,len(words)-1)]
-        for word in words:
-            if word in word_dictionary.keys():
-                index = word_dictionary[word]
-                tweetArray[i][index] += 1
-    
-    return(tweetArray)
-
 def fit_naive_bayes_model_3(matrix, labels):
     """Fit a naive bayes model.
 
@@ -188,13 +78,14 @@ def predict_from_naive_bayes_model_3(model, matrix):
         
     return(dataLabels)
 
-def self_learn(trainMatrix, trainLabels, unlabelledMatrix, maxIter = 10, threshold = 0.98):
+def self_learn(trainMatrix, trainLabels, unlabelledMatrix, maxIter = 2, threshold = 0.50):
     ''' Update training data with confident predictions from unlabelled data
     '''
+    original_labelled = len(trainMatrix)
 
     for i in tqdm(range(maxIter)): # self learn for maxIter iterations
         NBModel = fit_naive_bayes_model_3(trainMatrix, trainLabels)
-        preds = learn_from_naive_bayes_model_3(NBModel, unlabelledMatrix)
+        preds = learn_from_naive_bayes_model_3(NBModel, unlabelledMatrix, threshold=threshold, len_og_labelled = original_labelled)
 
         # add to training examples
         posNewLabels = unlabelledMatrix[preds == 1]
@@ -202,15 +93,17 @@ def self_learn(trainMatrix, trainLabels, unlabelledMatrix, maxIter = 10, thresho
         neutNewLabels = unlabelledMatrix[preds == 0]
 
         trainMatrix = np.concatenate((trainMatrix,posNewLabels, negNewLabels, neutNewLabels), axis=0)
-        trainLabels = np.concatenate((trainLabels,np.ones(len(posNewLabels),1), \
-            -1*np.ones(len(negNewLabels),1), np.zeros(len(neutNewLabels), 1)), axis=0)     
+        trainLabels = np.concatenate((trainLabels,np.ones((len(posNewLabels))), \
+            -1*np.ones((len(negNewLabels))), np.zeros((len(neutNewLabels)))), axis=0)     
 
+        if np.array_equal(unlabelledMatrix, unlabelledMatrix[preds == 5]): # stop. no confident predictions in the unlabelled set
+            break
         unlabelledMatrix = unlabelledMatrix[preds == 5]
 
     return fit_naive_bayes_model_3(trainMatrix, trainLabels)
 
 
-def learn_from_naive_bayes_model_3(model, matrix, threshold = 0.98):
+def learn_from_naive_bayes_model_3(model, matrix, threshold = 0.98, len_og_labelled = None):
     """Use a Naive Bayes model to compute predictions for a unlabelled data matrix.
 
     This function should be able to predict on the models that fit_naive_bayes_model
@@ -223,6 +116,8 @@ def learn_from_naive_bayes_model_3(model, matrix, threshold = 0.98):
 
     Returns: A numpy array containg the confident predictions from the model 
     """
+    if len_og_labelled is None:
+        raise RuntimeError("The length of the original set of labelled training examples must be set")
     theta_y, theta_k = model
     numClasses = len(theta_y)
     labelTypes = [-1, 0, 1]
@@ -247,64 +142,95 @@ def learn_from_naive_bayes_model_3(model, matrix, threshold = 0.98):
         dataLabels[prob > maxExampleProbs] = labelTypes[i]
         maxExampleProbs[prob > maxExampleProbs] = prob[prob > maxExampleProbs]
     # self train
-    for i in range(len(maxExampleProbs)):
+    for i in range(len_og_labelled, len(maxExampleProbs)): # skip the original training data
         if maxExampleProbs[i] < threshold: # only label values with probability > threshold
-            dataLabels[i] = 5 # user 5 to indicate no label
+            dataLabels[i] = 5 # use 5 to indicate no label
 
     return(dataLabels)
 
+def main():
+    traintweets, trainLabels = util.load_dataset(r'..\data\train_new.csv')
+    valtweets, valLabels = util.load_dataset(r'..\data\val_new.csv')
+    testtweets, testLabels = util.load_dataset(r'..\data\test_new.csv')
+
+    ## Train unigram model
+    wordDict = util.create_dictionary(traintweets, False)
+    trainWordMatrix = util.transform_text(traintweets, wordDict, False)
+
+    ## Train bigram model
+    bigramDict = util.create_dictionary(traintweets, True)
+    trainBigramMatrix = util.transform_text(traintweets, bigramDict, True)
+
+    valWordMatrix = util.transform_text(valtweets, wordDict, False)
+    valBigramMatrix = util.transform_text(valtweets, bigramDict, True)
+
+    testWordMatrix = util.transform_text(testtweets, wordDict, False)
+    testBigramMatrix = util.transform_text(testtweets, bigramDict, True)
+
+    # Predict Unigram model
+    NBModel = fit_naive_bayes_model_3(trainWordMatrix, trainLabels)
+    preds_train = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
+    preds_val = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
+    preds_test = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
+
+    print(f'Unigram train accuracy: {np.mean(trainLabels == preds_train)}')
+    print(f'Unigram val accuracy: {np.mean(valLabels == preds_val)}')
+    print(f'Unigram test accuracy: {np.mean(testLabels == preds_test)}')
+
+    # Plot confusion matrix
+    y_actual = pd.Series(trainLabels, name='Actual')
+    y_pred = pd.Series(preds_train, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'unigram_train')
+
+    y_actual = pd.Series(valLabels, name='Actual')
+    y_pred = pd.Series(preds_val, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'unigram_val')
+
+    y_actual = pd.Series(testLabels, name='Actual')
+    y_pred = pd.Series(preds_test, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'unigram_test')
 
 
-##### CODE EXAMPLEs ######
-traintweets, trainLabels = load_dataset(r'data\train_new.csv')
-valtweets, valLabels = load_dataset(r'data\train_val.csv')
+    # Predict Bigram model
 
-## Train unigram model
-wordDict = create_dictionary(traintweets, False)
-trainWordMatrix = transform_text(traintweets, wordDict, False)
-
-## Train bigram model
-#bigramDict = create_dictionary(traintweets, True)
-#trainBigramMatrix = transform_text(traintweets, bigramDict, True)
-
-valWordMatrix = transform_text(valtweets, wordDict, False)
-#valBigramMatrix = transform_text(valtweets, bigramDict, True)
-
-# IF USING 3 CLASSES (NEG/POS/NEUTRAL)
-# Predict Unigram model
-NBModel = fit_naive_bayes_model_3(trainWordMatrix, trainLabels)
-preds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
-#preds = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
-print(f'Unigram accuracy: {np.mean(valLabels == preds)}')
-
-# Plot confusion matrix
-y_actual = pd.Series(valLabels, name='Actual')
-y_pred = pd.Series(preds, name='Predicted')
-util.plot_confusion_matrix(y_actual, y_pred)
+    NBModel = fit_naive_bayes_model_3(trainBigramMatrix, trainLabels)
+    preds_val = predict_from_naive_bayes_model_3(NBModel, valBigramMatrix)
+    preds_train = predict_from_naive_bayes_model_3(NBModel, trainBigramMatrix)
+    preds_test = predict_from_naive_bayes_model_3(NBModel, testBigramMatrix)
+    print(f'Bigram train accuracy: {np.mean(trainLabels == preds_train)}')
+    print(f'Bigram val accuracy: {np.mean(valLabels == preds_val)}')
+    print(f'Bigram test accuracy: {np.mean(testLabels == preds_test)}')
 
 
-# Predict Bigram model
+    # Plot confusion matrix
+    y_actual = pd.Series(trainLabels, name='Actual')
+    y_pred = pd.Series(preds_train, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'bigram_train')
 
-#NBModel = fit_naive_bayes_model_3(trainBigramMatrix, trainLabels)
-#preds = predict_from_naive_bayes_model_3(NBModel, valBigramMatrix)
-#preds = predict_from_naive_bayes_model_3(NBModel, trainBigramMatrix)
-#print(f'Bigram accuracy: {np.mean(trainLabels == preds)}')
+    y_actual = pd.Series(valLabels, name='Actual')
+    y_pred = pd.Series(preds_val, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'bigram_val')
 
-#y_actual = pd.Series(valLabels, name='Actual')
-#y_pred = pd.Series(preds, name='Predicted')
+    y_actual = pd.Series(testLabels, name='Actual')
+    y_pred = pd.Series(preds_test, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'bigram_test')
 
-#plot_confusion_matrix(y_actual, y_pred)
+    # IF SELF LEARNING
+    txt_path = r'..\data\unlabelled3_06.txt'
+    unlabelledtweets = util.load_unlabelled_dataset(txt_path)
+    unlabelledMatrix = util.transform_text(unlabelledtweets, wordDict, False)
+    NBModel = self_learn(trainWordMatrix, trainLabels, unlabelledMatrix)
+    preds_val = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
+    print(f'Self Learning val accuracy: {np.mean(valLabels == preds_val)}')
+
+    preds_test = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
+    print(f'Self Learning test accuracy: {np.mean(testLabels == preds_test)}')
+
+    y_actual = pd.Series(testLabels, name='Actual')
+    y_pred = pd.Series(preds_test, name='Predicted')
+
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'self_train_test')
 
 
-# IF SELF LEARNING
-txt_path = r'data\unlabelled3_06.txt'
-unlabelledtweets = load_unlabelled_dataset(txt_path)
-unlabelledMatrix = transform_text(unlabelledtweets, wordDict, False)
-NBModel = self_learn(trainWordMatrix, trainLabels, unlabelledMatrix)
-preds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
-print(f'Self Learning accuracy: {np.mean(valLabels == preds)}')
-
-y_actual = pd.Series(valLabels, name='Actual')
-y_pred = pd.Series(preds, name='Predicted')
-
-util.plot_confusion_matrix(y_actual, y_pred)
+if __name__ == '__main__':
+    main()
