@@ -5,8 +5,10 @@ from sklearn.linear_model import LogisticRegression as LR
 from qns3vm import QN_S3VM
 import random as rnd
 from itertools import combinations
+import util
+import pandas as pd
 
-class multiclass():
+class multiclass_QNS3VM():
     """
     Multiclass wrapper for QN-S3VM by Fabian Gieseke, Antti Airola, Tapio Pahikkala, Oliver Kramer (see http://www.fabiangieseke.de/index.php/code/qns3vm) 
     and provides probability estimates using Platt scaling.
@@ -48,29 +50,33 @@ class multiclass():
         """        
         unlabeledX = X[y==-1]
 
-        for c1, c2 in self.classPairs: # perform one-vs-one classification      
+        for c1, c2 in self.classPairs: # perform one-vs-one classification  
+            print(f"training classes {c1} vs {c2}")    
             # convert class c1 to 1 and c2 to -1 per svm convention      
             c1X = X[y == c1]
-            c1y = np.ones(len(y[y == c1]), 1)
+            c1y = np.ones((len(y[y == c1])))
 
             c2X = X[y == c2]
-            c2y = -1*np.ones(len(y[y == c2]),1)
+            c2y = -1*np.ones((len(y[y == c2])))
             
             labeledX = np.concatenate((c1X, c2X), axis = 0)
-            labeledy = np.concatenate((c1y, c2y), axis = 0)
+            labeledy = np.concatenate((c1y, c2y), axis = 0).astype(int)
 
+            #if 'rbf' in self.kernel_type.lower():
+                #self.models[(c1,c2)] = QN_S3VM(labeledX, labeledy, unlabeledX,\
+                     #lam=self.lam, lam_u=self.lamU, kernel="rbf", sigma=self.sigma)
             if 'rbf' in self.kernel_type.lower():
-                self.models[(c1,c2)] = QN_S3VM(labeledX.tolist(), labeledy, unlabeledX, self.random_generator,\
-                     lam=self.lam, lamU=self.lamU, kernel_type="RBF", sigma=self.sigma)
+                self.models[(c1,c2)] = QN_S3VM(labeledX, labeledy, unlabeledX, random_generator = self.random_generator,\
+                     lam=self.lam, lam_u=self.lamU, kernel="rbf", sigma=self.sigma)
             else:
-                self.models[(c1,c2)] = QN_S3VM(labeledX.tolist(), labeledy, unlabeledX, self.random_generator, lam=self.lam, lamU=self.lamU)
+                self.models[(c1,c2)] = QN_S3VM(labeledX, labeledy, unlabeledX,  lam=self.lam, lam_u=self.lamU)
                 
             self.models[(c1,c2)].train()
             
             # probabilities by Platt scaling
             if self.probability:
                 self.plattlr = LR()
-                preds = self.models[(c1, c2)].getPredictions(labeledX.tolist(), real_valued=True)
+                preds = self.models[(c1, c2)].getPredictions(labeledX, real_valued=True)
                 self.plattlr.fit(preds.reshape( -1, 1 ), labeledy)
         
     def predict_proba(self, X, classPair):
@@ -92,7 +98,7 @@ class multiclass():
 
         for c1, c2 in self.classPairs:
             if self.probability:
-                preds = self.models[classPair].getPredictions(X.tolist(), real_valued=True)
+                preds = self.models[classPair].getPredictions(X, real_valued=True)
                 prob.append(self.plattlr.predict_proba(preds.reshape( -1, 1 )))
             else:
                 raise RuntimeError("Probabilities were not calculated for this model - make sure you pass probability=True to the constructor")
@@ -112,7 +118,8 @@ class multiclass():
         """
         preds = []
         for c1, c2 in self.classPairs:
-            y = self.models[c1, c2].getPredictions(X.tolist())
+            print(f"predicting classes {c1} vs {c2}")    
+            y = self.models[c1, c2].getPredictions(X)
             y[y==1] = c1
             y[y==-1] = c2 
             preds.append(y)
@@ -122,21 +129,60 @@ class multiclass():
         return predClass
 
 def main():   
-    traintweets, trainLabels = util.load_dataset(r'data\train_new.csv')
-    valtweets, valLabels = util.load_dataset(r'data\val_new.csv')
+    traintweets, trainLabels = util.load_dataset(r'..\data\train_new.csv')
+    valtweets, valLabels = util.load_dataset(r'..\data\val_new.csv')
+    testtweets, testLabels = util.load_dataset(r'..\data\test_new.csv')
+    #traintweets, trainLabels = util.load_dataset(r'data\train_new.csv')
+    #valtweets, valLabels = util.load_dataset(r'data\val_new.csv')
+    #testtweets, testLabels = util.load_dataset(r'data\test_new.csv')
 
     ## Get unigram bag of words
     wordDict = util.create_dictionary(traintweets, False)
     trainWordMatrix = util.transform_text(traintweets, wordDict, False)
     valWordMatrix = util.transform_text(valtweets, wordDict, False)
+    testWordMatrix = util.transform_text(testtweets, wordDict, False)
 
 
-    print(f'Unigram accuracy: {np.mean(valLabels == preds)}')
+    # change all -1 labels to 2 since -1 reserved for unlabelled
+    trainLabels[trainLabels == -1] = 2 
+    valLabels[valLabels == -1] = 2
+    testLabels[testLabels == -1] = 2
+
+    txt_path = r'..\data\unlabelled3_06.txt'
+    #txt_path = r'data\unlabelled3_06.txt'
+    unlabelledtweets = util.load_unlabelled_dataset(txt_path)
+    unlabelledMatrix = util.transform_text(unlabelledtweets, wordDict, False)
+    unlabelledy = -1 * np.ones((len(unlabelledMatrix)))
+
+    # concatenate into single feature and label matrices
+    X = np.concatenate((trainWordMatrix, unlabelledMatrix), axis=0)    
+    y = np.concatenate((trainLabels, unlabelledy), axis = 0)
+    
+    model = multiclass_QNS3VM(labels = [0, 1, 2])
+    print("Training model")
+    model.fit(X, y)
+    print("predicting")
+    preds_val = model.predict(valWordMatrix)
+    print(f'S3VM val accuracy: {np.mean(valLabels == preds_val)}')
+
 
     # Plot confusion matrix
     y_actual = pd.Series(valLabels, name='Actual')
-    y_pred = pd.Series(preds, name='Predicted')
-    util.plot_confusion_matrix(y_actual, y_pred)
+    y_pred = pd.Series(preds_val, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 's3svm val')
+
+    print("predicting val")
+    preds_val = model.predict(valWordMatrix)
+    print(f'S3VM val accuracy: {np.mean(valLabels == preds_val)}')
+
+
+    # Plot confusion matrix
+    print("predicting test")
+    preds_test = model.predict(testWordMatrix)
+    print(f'S3VM test accuracy: {np.mean(valLabels == preds_test)}')
+    y_actual = pd.Series(testLabels, name='Actual')
+    y_pred = pd.Series(preds_test, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 's3svm test')
 
 if __name__ == '__main__':
     main()

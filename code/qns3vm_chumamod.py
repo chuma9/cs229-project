@@ -1,3 +1,5 @@
+# Ported to Python 3 by Chuma Kabaghe
+#
 ############################################################################################
 # QN-S3VM BFGS optimizer for semi-supervised support vector machines. 
 #
@@ -254,7 +256,6 @@ class QN_S3VM_Dense:
         KNU_bar_horizontal_sum = (1.0 / len(self.__X_u_subset)) * KNU_bar.sum(axis=1)
         KNR = KNR - KNU_bar_horizontal_sum - self.__KU_barR_vertical_sum + self.__KU_barU_bar_sum
         preds = KNR * self.__c[0:self.__dim-1,:] + self.__c[self.__dim-1,:]
-        print(type(preds))
         if real_valued == True:
             return preds.flatten(1).tolist()[0]
         else:
@@ -369,21 +370,21 @@ class QN_S3VM_Dense:
             x = arr.array('i')
             for l in self.__L_l:
                 x.append(l)
-            self.__YL = mat(x, dtype=np.float64)
+            self.__YL = np.array(x, dtype=np.float64)
             self.__YL = self.__YL.transpose()
             # Initialize kernel matrices
             if (self.__kernel_type == "Linear"):
                 self.__kernel = LinearKernel()
             elif (self.__kernel_type == "RBF"):
                 self.__kernel = RBFKernel(self.__sigma)
-            self.__Xreg = (mat(self.__X)[self.__regressors_indices,:].tolist())
+            self.__Xreg = (np.array(self.__X)[self.__regressors_indices,:].tolist())
             self.__KLR = self.__kernel.computeKernelMatrix(self.__X_l,self.__Xreg, symmetric=False)
             self.__KUR = self.__kernel.computeKernelMatrix(self.__X_u,self.__Xreg, symmetric=False)
             self.__KNR = cp.deepcopy(bmat([[self.__KLR], [self.__KUR]]))
             self.__KRR = self.__KNR[self.__regressors_indices,:]
             # Center patterns in feature space (with respect to approximated mean of unlabeled patterns in the feature space)
             subset_unlabled_indices = sorted(self.__random_generator.sample( range(0,len(self.__X_u)), min(self.__max_unlabeled_subset_size, len(self.__X_u)) ))
-            self.__X_u_subset = (mat(self.__X_u)[subset_unlabled_indices,:].tolist())
+            self.__X_u_subset = (np.array(self.__X_u)[subset_unlabled_indices,:].tolist())
             self.__KNU_bar = self.__kernel.computeKernelMatrix(self.__X, self.__X_u_subset, symmetric=False)
             self.__KNU_bar_horizontal_sum = (1.0 / len(self.__X_u_subset)) * self.__KNU_bar.sum(axis=1)
             self.__KU_barR = self.__kernel.computeKernelMatrix(self.__X_u_subset, self.__Xreg, symmetric=False)
@@ -401,7 +402,7 @@ class QN_S3VM_Dense:
         # (that does not optimize the offset b) or not
         if len(c) == self.__dim - 1:
             c = np.append(c, self.__b)
-        c = mat(c)
+        c = np.array(c)
         b = c[:,self.__dim-1].T
         c_new = c[:,0:self.__dim-1].T
         preds_labeled = self.__surrogate_gamma*(1.0 - multiply(self.__YL, self.__KLR * c_new + b))
@@ -429,7 +430,7 @@ class QN_S3VM_Dense:
         # (that does not optimize the offset b) or not
         if len(c) == self.__dim - 1:
             c = np.append(c, self.__b)
-        c = mat(c)
+        c = np.array(c)
         b = c[:,self.__dim-1].T
         c_new = c[:,0:self.__dim-1].T
         preds_labeled = self.__surrogate_gamma * (1.0 - multiply(self.__YL, self.__KLR * c_new + b))
@@ -454,7 +455,7 @@ class QN_S3VM_Dense:
         return array((term1 + term2 + term3).T)[0]
 
     def __recomputeModel(self, indi):
-        self.__c = mat(indi[0]).T
+        self.__c = np.array(indi[0]).T
 
     def __getTrainingPredictions(self, X, real_valued=False):
         preds = self.__KNR * self.__c[0:self.__dim-1,:] + self.__c[self.__dim-1,:]
@@ -511,7 +512,7 @@ class QN_S3VM_Sparse:
         x = arr.array('i')
         for l in L_l:
             x.append(int(l))
-        self.__YL = mat(x, dtype=np.float64)
+        self.__YL = np.array(x, dtype=np.float64)
         self.__YL = self.__YL.transpose()
         self.__setParameters( ** kw)
         self.__kw = kw
@@ -556,7 +557,6 @@ class QN_S3VM_Sparse:
             W = W[range(X.shape[1])]
         X = X.tocsc()
         preds = X * W + self.__b
-        print(type(preds))
         if real_valued == True:
             return preds.flatten().tolist()[0]
         else:
@@ -656,27 +656,27 @@ class QN_S3VM_Sparse:
         # (that does not optimize the offset b) or not
         if len(c) == self.__dim - 1:
             c = np.append(c, self.__b)
-        c = mat(c)
+        c = np.array(c)
         b = c[:,self.__dim-1].T
         c_new = c[:,0:self.__dim-1].T
         c_new_sum = np.sum(c_new)
         XTc = self.X_T*c_new - self.__mean_u.T*c_new_sum
-        preds_labeled = self.__surrogate_gamma*(1.0 - multiply(self.__YL, (self.X_l*XTc - self.__mean_u*XTc) + b[0,0]))
+        preds_labeled = self.__surrogate_gamma*(1.0 - np.multiply(self.__YL, (self.X_l*XTc - self.__mean_u*XTc) + b[0,0]))
         preds_unlabeled = (self.X_u*XTc - self.__mean_u*XTc)  + b[0,0]
         # This vector has a "one" for each "numerically instable" entry; "zeros" for "good ones". 
         preds_labeled_conflict_indicator = np.sign(np.sign(preds_labeled/self.__breakpoint_for_exp - 1.0) + 1.0)
         # This vector has a one for each good entry and zero otherwise
         preds_labeled_good_indicator = (-1)*(preds_labeled_conflict_indicator - 1.0)
-        preds_labeled_for_conflicts = multiply(preds_labeled_conflict_indicator,preds_labeled) 
-        preds_labeled = multiply(preds_labeled,preds_labeled_good_indicator)
+        preds_labeled_for_conflicts = np.multiply(preds_labeled_conflict_indicator,preds_labeled) 
+        preds_labeled = np.multiply(preds_labeled,preds_labeled_good_indicator)
         # Compute values for good entries
         preds_labeled_log_exp = np.log(1.0 + np.exp(preds_labeled))
         # Compute values for instable entries
-        preds_labeled_log_exp = multiply(preds_labeled_good_indicator, preds_labeled_log_exp)
+        preds_labeled_log_exp = np.multiply(preds_labeled_good_indicator, preds_labeled_log_exp)
         # Replace critical values with values 
         preds_labeled_final = preds_labeled_log_exp + preds_labeled_for_conflicts
         term1 = (1.0/(self.__surrogate_gamma*self.__size_l)) * np.sum(preds_labeled_final)
-        preds_unlabeled_squared = multiply(preds_unlabeled,preds_unlabeled)
+        preds_unlabeled_squared = np.multiply(preds_unlabeled,preds_unlabeled)
         term2 = (float(self.__lamU)/float(self.__size_u))*np.sum(np.exp(-self.__s * preds_unlabeled_squared))
         term3 = self.__lam * c_new.T * (self.X * XTc - self.__mean_u*XTc)
         return (term1 + term2 + term3)[0,0]
@@ -686,7 +686,7 @@ class QN_S3VM_Sparse:
         # (that does not optimize the offset b) or not
         if len(c) == self.__dim - 1:
             c = np.append(c, self.__b)
-        c = mat(c)
+        c = np.array(c)
         b = c[:,self.__dim-1].T
         c_new = c[:,0:self.__dim-1].T
         c_new_sum = np.sum(c_new)
@@ -717,7 +717,7 @@ class QN_S3VM_Sparse:
         return array((term1 + term2 + term3).T)[0]
 
     def __recomputeModel(self, indi):
-        self.__c = mat(indi[0]).T
+        self.__c = np.array(indi[0]).T
 
 ############################################################################################
 ############################################################################################
@@ -733,12 +733,12 @@ class LinearKernel():
         Computes the kernel matrix
         """
         logging.debug("Starting Linear Kernel Matrix Computation...")
-        self._data1 = mat(data1)
-        self._data2 = mat(data2)
+        self._data1 = np.array(data1)
+        self._data2 = np.array(data2)
         assert self._data1.shape[1] == (self._data2.T).shape[0]
         try:
-            return self._data1 * self._data2.T
-        except:
+            return np.dot(self._data1,self._data2.T)
+        except Exception as e:
             logging.error("Error while computing kernel matrix: " + str(e))
             sys.exit()
         logging.debug("Kernel Matrix computed...")
@@ -772,7 +772,7 @@ class DictLinearKernel():
         self._symmetric = symmetric
         self.__km = None
         try:
-            km = mat(zeros((self._dim1, self._dim2), dtype=float64))
+            km = np.array(zeros((self._dim1, self._dim2), dtype=float64))
             if self._symmetric:
                 for i in xrange(self._dim1):
                     message = 'Kernel Matrix Progress: %dx%d/%dx%d' % (i, self._dim2,self._dim1,self._dim2)
@@ -791,7 +791,7 @@ class DictLinearKernel():
                         km[i, j] = val
                 return km
             
-        except:
+        except Exception as e:
             logging.error("Error while computing kernel matrix: " + str(e))
             sys.exit()
         logging.debug("Kernel Matrix computed...")
@@ -819,19 +819,18 @@ class RBFKernel():
         Computes the kernel matrix
         """
         print("Starting RBF Kernel Matrix Computation...")
-        self._data1 = mat(data1)
-        self._data2 = mat(data2)
+        self._data1 = np.array(data1)
+        self._data2 = np.array(data2)
         assert self._data1.shape[1] == (self._data2.T).shape[0]
         self._dim1 = len(data1)
         self._dim2 = len(data2)
         self._symmetric = symmetric
-        print("Symmetric: ", symmetric)
         self.__km = None
         try:
             if self._symmetric:
-                linearkm = self._data1 * self._data2.T
-                trnorms = mat(np.diag(linearkm)).T
-                trace_matrix = trnorms * mat(np.ones((1, self._dim1), dtype = float64))
+                linearkm = np.dot(self._data1, self._data2.T)
+                trnorms = np.array(np.diag(linearkm)).T
+                trace_matrix = np.dot(trnorms, np.ones((1, self._dim1), dtype = float64))
                 self.__km = trace_matrix + trace_matrix.T
                 self.__km = self.__km - 2*linearkm
                 self.__km = - self.__sigma_squared_inv * self.__km
@@ -841,22 +840,22 @@ class RBFKernel():
                 m = self._data1.shape[0]
                 n = self._data2.shape[0]
                 assert self._data1.shape[1] == self._data2.shape[1]
-                linkm = mat(self._data1 * self._data2.T)
+                linkm = np.dot(self._data1, self._data2.T)
                 trnorms1 = []
                 for i in range(m):
-                    trnorms1.append((self._data1[i] * self._data1[i].T)[0,0])
-                trnorms1 = mat(trnorms1).T
+                    trnorms1.append((np.outer(self._data1[i], self._data1[i].T))[0,0])
+                trnorms1 = np.array(trnorms1).T
                 trnorms2 = []
                 for i in range(n):
-                    trnorms2.append((self._data2[i] * self._data2[i].T)[0,0])
-                trnorms2 = mat(trnorms2).T
-                self.__km = trnorms1 * mat(np.ones((n, 1), dtype = float64)).T
-                self.__km = self.__km + mat(np.ones((m, 1), dtype = float64)) * trnorms2.T
+                    trnorms2.append(np.outer(self._data2[i] * self._data2[i].T)[0,0])
+                trnorms2 = np.array(trnorms2).T
+                self.__km = np.dot(trnorms1, np.ones((n, 1), dtype = float64).T)
+                self.__km = self.__km + np.dot(np.ones((m, 1), dtype = float64), trnorms2.T)
                 self.__km = self.__km - 2 * linkm
                 self.__km = - self.__sigma_squared_inv * self.__km
                 self.__km = np.exp(self.__km)
                 return self.__km
-        except:
+        except Exception as e:
             logging.error("Error while computing kernel matrix: " + str(e))
             sys.exit()
 
@@ -890,7 +889,7 @@ class DictRBFKernel():
         self._symmetric = symmetric
         self.__km = None
         try:
-            km = mat(zeros((self._dim1, self._dim2), dtype=float64))
+            km = np.array(zeros((self._dim1, self._dim2), dtype=float64))
             if self._symmetric:
                 for i in xrange(self._dim1):
                     message = 'Kernel Matrix Progress: %dx%d/%dx%d' % (i, self._dim2,self._dim1,self._dim2)
@@ -908,7 +907,7 @@ class DictRBFKernel():
                         val = self.getKernelValue(self._data1[i], self._data2[j])
                         km[i, j] = val
                 return km
-        except:
+        except Exception as e:
             logging.error("Error while computing kernel matrix: " + str(e))
             sys.exit()
         logging.info("Kernel Matrix computed...")
@@ -926,50 +925,3 @@ class DictRBFKernel():
         diff = diff.values()
         val = exp(-self.__sigma_squared_inv * (dot(diff, diff)))
         return val
-
-
-if __name__ == "__main__":
-    import random, examples, time
-    my_random_generator = random.Random()
-    my_random_generator.seed(0)
-
-    # sparse text data set
-    X_train_l, L_train_l, X_train_u, X_test, L_test, kw = examples.get_text_data(my_random_generator)
-    t_start = time.time()
-    model = QN_S3VM(X_train_l, L_train_l, X_train_u, my_random_generator, lam=0.00390625, lamU=1)
-    model.train()
-    t_end = time.time()
-    elapsed_time = t_end - t_start
-    preds = model.getPredictions(X_test)
-    error = examples.classification_error(preds,L_test)
-    print("Time needed to compute the model: ", elapsed_time, " seconds")
-    print("Classification error of QN-S3VM: ", error)
-
-    # dense gaussian data set
-    X_train_l, L_train_l, X_train_u, X_test, L_test = examples.get_gaussian_data(my_random_generator)
-    t_start = time.time()
-    model = QN_S3VM(X_train_l, L_train_l, X_train_u, my_random_generator, lam=1, lamU=1)
-    model.train()
-    t_end = time.time()
-    elapsed_time = t_end - t_start
-    preds = model.getPredictions(X_test)
-    error = examples.classification_error(preds,L_test)
-    print("Time needed to compute the model: ", elapsed_time, " seconds")
-    print("Classification error of QN-S3VM: ", error)
-
-    # dense moons data set
-    X_train_l, L_train_l, X_train_u, X_test, L_test = examples.get_moons_data(my_random_generator)
-    t_start = time.time()
-    # the parameter estimate_r for the balance ratio has to be provided explicitly, since the estimation
-    # is bad due to only 5 labeled patterns in the training set.
-    model = QN_S3VM(X_train_l, L_train_l, X_train_u, my_random_generator, lam=0.0009765625, lamU=1, \
-                    kernel_type="RBF", sigma=0.5,  estimate_r=0.0,)
-    model.train()
-    t_end = time.time()
-    elapsed_time = t_end - t_start
-    preds = model.getPredictions(X_test)
-    error = examples.classification_error(preds,L_test)
-    print("Time needed to compute the model: ", elapsed_time, " seconds")
-    print("Classification error of QN-S3VM: ", error)    
-
-    print("")
