@@ -97,7 +97,8 @@ def split_dataset(tweets, labels, testFrac = 0.1, valFrac = 0.2):
     with open('test_new.csv', 'w+') as fp:
         for i in range(len(testtweets)):
             fp.write(f'"{testtweets[i]}", {testLabels[i]}\n')
-  
+            
+            
 def main():
     csv_path = r'data\climatechangestance.csv'
     txt_path = r'data\unlabelled_raw_tweets.txt'

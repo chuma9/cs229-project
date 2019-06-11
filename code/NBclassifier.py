@@ -166,7 +166,7 @@ def fit_semisupervised_naive_bayes_model(matrix, labels):
     
     # hyperparameters
     alpha = 20.  # Weight for the labeled examples
-    eps = 1e-3   # Convergence threshold
+    eps = 1e-2   # Convergence threshold
     max_iter = 1000
 
     # data parameters
@@ -211,7 +211,7 @@ def fit_semisupervised_naive_bayes_model(matrix, labels):
         for i in range(numLabels):
             fracLabeledData = np.sum(labels == labelTypes[i])
             weightsUnlabeledData = np.sum(qis[:, i])
-            updatedThetaY = (fracLabeledData + weightsUnlabeledData) / (n + m)
+            updatedThetaY = (1+ alpha*fracLabeledData + weightsUnlabeledData) / (numLabels + alpha*n + m)
             theta_y[i] = updatedThetaY
             
         for i in range(numLabels):
@@ -220,7 +220,7 @@ def fit_semisupervised_naive_bayes_model(matrix, labels):
             
             unlabeledExamples = np.matmul(unlabelledMatrix.T, qis[:, i])
             sumUnlabeledExamples = np.sum(unlabeledExamples)
-            prob = (1 + np.sum(examples, axis=0) + unlabeledExamples) / (sumExamples + sumUnlabeledExamples + v) # assign MLE with laplace smoothing
+            prob = (1 + alpha*np.sum(examples, axis=0) + unlabeledExamples) / (alpha*sumExamples + sumUnlabeledExamples + v) # assign MLE with laplace smoothing
             theta_k[i, :] = prob
 
         # (3) Compute the log-likelihood of the data to check for convergence.
@@ -229,19 +229,19 @@ def fit_semisupervised_naive_bayes_model(matrix, labels):
         labeledDataLoss = 0
         unlabeledDataLoss = 0
         for i in range(numLabels):
-            labeledDataLoss += np.sum(np.matmul(labelledMatrix[labels == labelTypes[i]], np.log(theta_k[i, :])))
-            labeledDataLoss += np.sum(labels == labelTypes[i])*np.log(theta_y[i])
+            labeledDataLoss += alpha*np.sum(np.matmul(labelledMatrix[labels == labelTypes[i]], np.log(theta_k[i, :])))
+            labeledDataLoss += alpha*np.sum(labels == labelTypes[i])*np.log(theta_y[i])
 
         unlabeledExampleLoss = np.exp(np.dot(unlabelledMatrix, np.log(theta_k).T) + np.log(theta_y[i]))
         unlabeledExampleLoss = np.sum(unlabeledExampleLoss, axis=1)
         unlabeledDataLoss = np.sum(np.log(unlabeledExampleLoss))
-
+        
         ll += labeledDataLoss + unlabeledDataLoss
-                
+        
         it += 1
         print('[iter: {:03d}, log-likelihood: {:.4f}]'.format(it, ll))
 
-    return w
+    return(theta_y, theta_k)
 
 def predict_from_naive_bayes_model_3(model, matrix):
     """Use a Naive Bayes model to compute predictions for a target matrix.
@@ -376,18 +376,34 @@ def get_top_naive_bayes_words(model, dictionary, n=10):
 
 if __name__ == '__main__':
     ##### CODE EXAMPLEs ######
-    traintweets, trainLabels = load_dataset(r'../data/2016_train.csv')
-    valtweets, valLabels = load_dataset(r'../data/2016_val.csv')
-    unlabelledtweets = load_unlabelled_dataset(r'../data/unlabelled_dataset.txt')
-
+    trainTweets, trainLabels = load_dataset(r'../data/2016_train.csv')
+    valTweets, valLabels = load_dataset(r'../data/2016_val.csv')
+    testTweets, testLabels = load_dataset(r'../data/2016_test.csv')
+    unlabelledTweets = load_unlabelled_dataset(r'../data/unlabelled_dataset.txt')
+    
     ## Train EM unigram model
     import pdb; pdb.set_trace()
-    combinedTweets = np.append(traintweets, unlabelledtweets)
+        
+    combinedTweets = np.append(trainTweets, unlabelledTweets)
     wordDict = create_dictionary(combinedTweets, False)
     combinedMatrix = transform_text(combinedTweets, wordDict, False)
     NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
-    preds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
-    print(f'Self Learning accuracy: {np.mean(valLabels == preds)}')
+    
+    trainWordMatrix = transform_text(trainTweets, wordDict, False)
+    trainPreds = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
+    trainAcc = np.mean(trainPreds == trainLabels)
+
+    valWordMatrix = transform_text(valTweets, wordDict, False)
+    valPreds = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
+    valAcc = np.mean(valPreds == valLabels)
+
+    testWordMatrix =  transform_text(testTweets, wordDict, False)
+    testPreds = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
+    testAcc = np.mean(testPreds == testLabels)
+    
+    resultsFile = '../data/results_full.csv'
+    with open(resultsFile, 'w+') as fp:
+        fp.write(f'{trainAcc}, {valAcc}, {testAcc}\n')
 
     ## Train unigram model
     wordDict = create_dictionary(traintweets, False)
