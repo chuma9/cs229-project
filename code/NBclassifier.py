@@ -78,7 +78,7 @@ def predict_from_naive_bayes_model_3(model, matrix):
         
     return(dataLabels)
 
-def self_learn(trainMatrix, trainLabels, unlabelledMatrix, maxIter = 2, threshold = 0.50):
+def self_learn(trainMatrix, trainLabels, unlabelledMatrix, maxIter = 20, threshold = 0.50):
     ''' Update training data with confident predictions from unlabelled data
     '''
     original_labelled = len(trainMatrix)
@@ -103,7 +103,7 @@ def self_learn(trainMatrix, trainLabels, unlabelledMatrix, maxIter = 2, threshol
     return fit_naive_bayes_model_3(trainMatrix, trainLabels)
 
 
-def learn_from_naive_bayes_model_3(model, matrix, threshold = 0.98, len_og_labelled = None):
+def learn_from_naive_bayes_model_3(model, matrix, threshold = 0.5, len_og_labelled = None):
     """Use a Naive Bayes model to compute predictions for a unlabelled data matrix.
 
     This function should be able to predict on the models that fit_naive_bayes_model
@@ -220,16 +220,14 @@ def main():
     unlabelledtweets = util.load_unlabelled_dataset(txt_path)
     unlabelledMatrix = util.transform_text(unlabelledtweets, wordDict, False)
     NBModel = self_learn(trainWordMatrix, trainLabels, unlabelledMatrix)
+    preds_train = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
+    print(f'Self Learning val accuracy: {np.mean(trainLabels == preds_train)}')
+
     preds_val = predict_from_naive_bayes_model_3(NBModel, valWordMatrix)
     print(f'Self Learning val accuracy: {np.mean(valLabels == preds_val)}')
 
     preds_test = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
     print(f'Self Learning test accuracy: {np.mean(testLabels == preds_test)}')
-
-    y_actual = pd.Series(testLabels, name='Actual')
-    y_pred = pd.Series(preds_test, name='Predicted')
-
-    util.plot_confusion_matrix(y_actual, y_pred, title = 'self_train_test')
 
 
 if __name__ == '__main__':
