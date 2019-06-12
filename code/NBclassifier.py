@@ -6,6 +6,7 @@ from nltk.corpus import stopwords
 import matplotlib.pyplot as plt
 import pandas as pd
 import util
+from util import *
 
 def fit_naive_bayes_model_3(matrix, labels):
     """Fit a naive bayes model.
@@ -58,7 +59,7 @@ def fit_semisupervised_naive_bayes_model(matrix, labels):
     """
     
     # hyperparameters
-    alpha = 100.  # Weight for the labeled examples
+    alpha = 20.  # Weight for the labeled examples
     eps = 1e-2   # Convergence threshold
     max_iter = 1000
 
@@ -284,7 +285,9 @@ def main():
     combinedTweets = np.append(trainTweets, unlabelledTweets)
     wordDict = create_dictionary(combinedTweets, False)
     combinedMatrix = transform_text(combinedTweets, wordDict, False)
-    NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
+    trainMatrix = transform_text(trainTweets, wordDict)
+    # NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
+    NBModel = fit_naive_bayes_model_3(trainMatrix, trainLabels)
     
     trainWordMatrix = transform_text(trainTweets, wordDict, False)
     trainPreds = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
@@ -298,14 +301,14 @@ def main():
     testPreds = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
     testAcc = np.mean(testPreds == testLabels)
 
-    y_actual = pd.Series(valLabels, name='Actual')
-    y_pred = pd.Series(preds_val, name='Predicted')
-    util.plot_confusion_matrix(y_actual, y_pred, title = 'unigram_val')
+    y_actual = pd.Series(testLabels, name='Actual')
+    y_pred = pd.Series(testPreds, name='Predicted')
+    util.plot_confusion_matrix(y_actual, y_pred, title = 'unigram_test')
 
     
-    resultsFile = '../data/results_full_alpha100.csv'
-    with open(resultsFile, 'w+') as fp:
-        fp.write(f'{trainAcc}, {valAcc}, {testAcc}\n')
+    # resultsFile = '../data/results_full.csv'
+    # with open(resultsFile, 'w+') as fp:
+    #     fp.write(f'{trainAcc}, {valAcc}, {testAcc}\n')
 
     ## Train unigram model
     wordDict = create_dictionary(traintweets, False)
