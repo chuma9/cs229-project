@@ -62,10 +62,15 @@ def downsample_analysis():
         downsampleFile = downsampleFileName.format(prefix)
         trainTweets, trainLabels = load_dataset(downsampleFile)
         
-        combinedTweets = np.append(trainTweets, unlabelledTweets)
-        wordDict = create_dictionary(combinedTweets, False)
-        combinedMatrix = transform_text(combinedTweets, wordDict, False)
-        NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
+        # combinedTweets = np.append(trainTweets, unlabelledTweets)
+        # wordDict = create_dictionary(combinedTweets, False)
+        # combinedMatrix = transform_text(combinedTweets, wordDict, False)
+        # NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
+        
+        wordDict = create_dictionary(trainTweets, False)
+        trainMatrix = transform_text(trainTweets, wordDict, False)
+        NBModel = fit_semisupervised_naive_bayes_model(trainMatrix, trainLabels)
+        
         
         trainWordMatrix = transform_text(trainTweets, wordDict, False)
         trainPreds = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
@@ -79,7 +84,7 @@ def downsample_analysis():
         testPreds = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
         testAcc = np.mean(testPreds == testLabels)
         
-        resultsFile = '../data/results_{}.csv'
+        resultsFile = '../data/results_NB_{}.csv'
         with open(resultsFile.format(prefix), 'w+') as fp:
             fp.write(f'{trainAcc}, {valAcc}, {testAcc}\n')
         
