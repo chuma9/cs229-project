@@ -286,8 +286,8 @@ def main():
     wordDict = create_dictionary(combinedTweets, False)
     combinedMatrix = transform_text(combinedTweets, wordDict, False)
     trainMatrix = transform_text(trainTweets, wordDict)
-    # NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
-    NBModel = fit_naive_bayes_model_3(trainMatrix, trainLabels)
+    NBModel = fit_semisupervised_naive_bayes_model(combinedMatrix, trainLabels)
+    # NBModel = fit_naive_bayes_model_3(trainMatrix, trainLabels)
     
     trainWordMatrix = transform_text(trainTweets, wordDict, False)
     trainPreds = predict_from_naive_bayes_model_3(NBModel, trainWordMatrix)
