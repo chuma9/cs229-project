@@ -165,7 +165,7 @@ def fit_semisupervised_naive_bayes_model(matrix, labels):
     """
     
     # hyperparameters
-    alpha = 20.  # Weight for the labeled examples
+    alpha = 100.  # Weight for the labeled examples
     eps = 1e-2   # Convergence threshold
     max_iter = 1000
 
@@ -401,7 +401,7 @@ if __name__ == '__main__':
     testPreds = predict_from_naive_bayes_model_3(NBModel, testWordMatrix)
     testAcc = np.mean(testPreds == testLabels)
     
-    resultsFile = '../data/results_full.csv'
+    resultsFile = '../data/results_full_alpha100.csv'
     with open(resultsFile, 'w+') as fp:
         fp.write(f'{trainAcc}, {valAcc}, {testAcc}\n')
 
