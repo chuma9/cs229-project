@@ -7,6 +7,7 @@ def plot_confusion_matrix(y_actual, y_pred, title='None', cmap=plt.cm.gray_r):
     """ Plot a confudion matrix for the true and predicted labels
     """
     df_confusion = pd.crosstab(y_actual, y_pred)
+    plt.rcParams.update({'font.size': 22})
     plt.matshow(df_confusion, cmap=cmap) # imshow
     #plt.title(title)
     plt.colorbar()
