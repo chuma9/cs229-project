@@ -3,6 +3,11 @@
 
 *Authors: Jason Qin and Chuma Kabaghe*
 
+Report: http://cs229.stanford.edu/proj2019spr/report/80.pdf
+
+Poster: http://cs229.stanford.edu/proj2019spr/poster/80.pdf
+
+
 ## Data acquisition and preprocessing
 Data acquisition code is located in:
 * ./code/twitterdata.py : collects tweets with the following hashtags - "globalwarminghoax", "globalwarmingisahoax", "climatechange", "climatehustle", "climatechangefraud"
